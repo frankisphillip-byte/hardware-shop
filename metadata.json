@@ -1,0 +1,7 @@
+{
+  "name": "frankisdigital",
+  "description": "Enterprise-grade hardware management system with POS, inventory, accounting, and multi-role security.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
