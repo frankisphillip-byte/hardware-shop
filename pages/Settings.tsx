@@ -22,7 +22,9 @@ import {
   Check,
   X,
   Store,
-  CreditCard
+  CreditCard,
+  Phone,
+  Mail
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -38,12 +40,12 @@ interface SettingsProps {
 const Settings: React.FC<SettingsProps> = ({ config, setConfig, role, addLog, branches, setBranches }) => {
   const [form, setForm] = useState<SystemConfig>({ ...config });
   const [activeSection, setActiveSection] = useState<'General' | 'Security' | 'AI' | 'Maintenance' | 'Branches'>('General');
-  const [newBranchName, setNewBranchName] = useState('');
+  const [newBranch, setNewBranch] = useState({ name: '', phone: '', email: '' });
   const [newPaymentMethod, setNewPaymentMethod] = useState('');
   
   // Branch Editing State
   const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
-  const [editBranchName, setEditBranchName] = useState('');
+  const [editBranchData, setEditBranchData] = useState({ name: '', phone: '', email: '' });
 
   if (role !== UserRole.ADMIN) {
     return (
@@ -63,11 +65,16 @@ const Settings: React.FC<SettingsProps> = ({ config, setConfig, role, addLog, br
 
   const handleAddBranch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newBranchName.trim()) return;
-    const newBranch = { id: `b${Date.now()}`, name: newBranchName.trim() };
-    setBranches(prev => [...prev, newBranch]);
-    addLog('BRANCH', newBranch.id, `New branch "${newBranch.name}" created.`, 'success');
-    setNewBranchName('');
+    if (!newBranch.name.trim()) return;
+    const branch = { 
+      id: `b${Date.now()}`, 
+      name: newBranch.name.trim(),
+      phone: newBranch.phone.trim(),
+      email: newBranch.email.trim()
+    };
+    setBranches(prev => [...prev, branch]);
+    addLog('BRANCH', branch.id, `New branch "${branch.name}" created with contact details.`, 'success');
+    setNewBranch({ name: '', phone: '', email: '' });
   };
 
   const handleAddPaymentMethod = (e: React.FormEvent) => {
@@ -102,13 +109,13 @@ const Settings: React.FC<SettingsProps> = ({ config, setConfig, role, addLog, br
 
   const handleStartEditBranch = (branch: Branch) => {
     setEditingBranchId(branch.id);
-    setEditBranchName(branch.name);
+    setEditBranchData({ name: branch.name, phone: branch.phone, email: branch.email });
   };
 
   const handleUpdateBranch = (id: string) => {
-    if (!editBranchName.trim()) return;
-    setBranches(prev => prev.map(b => b.id === id ? { ...b, name: editBranchName.trim() } : b));
-    addLog('BRANCH', id, `Branch renamed to "${editBranchName.trim()}".`, 'info');
+    if (!editBranchData.name.trim()) return;
+    setBranches(prev => prev.map(b => b.id === id ? { ...b, ...editBranchData } : b));
+    addLog('BRANCH', id, `Branch "${editBranchData.name}" contact information updated.`, 'info');
     setEditingBranchId(null);
   };
 
@@ -129,7 +136,6 @@ const Settings: React.FC<SettingsProps> = ({ config, setConfig, role, addLog, br
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Sidebar Navigation */}
         <div className="lg:col-span-1 space-y-1">
           <NavButton 
             active={activeSection === 'General'} 
@@ -163,7 +169,6 @@ const Settings: React.FC<SettingsProps> = ({ config, setConfig, role, addLog, br
           />
         </div>
 
-        {/* Content Area */}
         <div className="lg:col-span-3 space-y-6">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden min-h-[500px]">
             <div className="p-8">
@@ -207,8 +212,6 @@ const Settings: React.FC<SettingsProps> = ({ config, setConfig, role, addLog, br
                       <CreditCard className="w-5 h-5 mr-2 text-indigo-600" />
                       Payment Settings
                     </h3>
-                    <p className="text-xs text-slate-400 font-medium mb-4">Define which payment methods are available at the POS terminal.</p>
-                    
                     <div className="space-y-4">
                       <div className="flex flex-wrap gap-2">
                         {form.paymentMethods.map(method => (
@@ -223,7 +226,6 @@ const Settings: React.FC<SettingsProps> = ({ config, setConfig, role, addLog, br
                           </div>
                         ))}
                       </div>
-                      
                       <form onSubmit={handleAddPaymentMethod} className="flex space-x-2">
                         <input 
                           type="text"
@@ -245,7 +247,7 @@ const Settings: React.FC<SettingsProps> = ({ config, setConfig, role, addLog, br
                       Invoicing Logic
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <FormField label="Low Stock Threshold (Units)" tooltip="Items below this number will trigger alerts.">
+                      <FormField label="Low Stock Threshold (Units)">
                         <input 
                           type="number" 
                           className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
@@ -266,14 +268,6 @@ const Settings: React.FC<SettingsProps> = ({ config, setConfig, role, addLog, br
                       </FormField>
                     </div>
                   </div>
-                  
-                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                    <div className="flex items-center space-x-2 mb-2">
-                       <Shield className="w-4 h-4 text-blue-500" />
-                       <span className="text-xs font-black text-slate-400 uppercase tracking-widest">SaaS Provider info</span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 font-medium">This software is powered by the **frankisdigital** platform. Infrastructure and security updates are managed by the provider.</p>
-                  </div>
                 </div>
               )}
 
@@ -284,75 +278,99 @@ const Settings: React.FC<SettingsProps> = ({ config, setConfig, role, addLog, br
                     <p className="text-xs text-slate-400 font-medium">Create and manage your organization's physical branches and warehouses.</p>
                   </div>
 
-                  <form onSubmit={handleAddBranch} className="flex space-x-3">
-                    <div className="flex-1">
+                  <form onSubmit={handleAddBranch} className="space-y-4 bg-slate-50 p-6 rounded-[2rem] border border-slate-200">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <input 
-                        type="text" 
-                        required
-                        placeholder="New Branch Name..." 
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                        value={newBranchName}
-                        onChange={(e) => setNewBranchName(e.target.value)}
+                        type="text" required placeholder="Branch Name..." 
+                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500/20 outline-none"
+                        value={newBranch.name}
+                        onChange={(e) => setNewBranch({...newBranch, name: e.target.value})}
+                      />
+                      <input 
+                        type="text" placeholder="Phone Number..." 
+                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500/20 outline-none"
+                        value={newBranch.phone}
+                        onChange={(e) => setNewBranch({...newBranch, phone: e.target.value})}
+                      />
+                      <input 
+                        type="email" placeholder="Branch Email..." 
+                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500/20 outline-none"
+                        value={newBranch.email}
+                        onChange={(e) => setNewBranch({...newBranch, email: e.target.value})}
                       />
                     </div>
-                    <button type="submit" className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg flex items-center space-x-2 active:scale-95 transition-all">
+                    <button type="submit" className="w-full bg-slate-900 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg flex items-center justify-center space-x-2 active:scale-95 transition-all">
                       <Plus className="w-4 h-4" />
-                      <span>Create Branch</span>
+                      <span>Register Branch</span>
                     </button>
                   </form>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                  <div className="grid grid-cols-1 gap-4 pt-4">
                     {branches.map(branch => (
-                      <div key={branch.id} className="p-5 border border-slate-100 rounded-2xl bg-slate-50/50 flex items-center justify-between group hover:border-blue-200 transition-all">
+                      <div key={branch.id} className="p-6 border border-slate-200 rounded-[2rem] bg-white flex flex-col md:flex-row md:items-center justify-between group hover:border-blue-300 transition-all shadow-sm">
                         <div className="flex items-center space-x-4 flex-1">
-                          <div className="p-3 bg-white rounded-xl text-blue-600 shadow-sm">
-                            <MapPin className="w-5 h-5" />
+                          <div className="p-4 bg-blue-50 rounded-2xl text-blue-600 shadow-sm">
+                            <MapPin className="w-6 h-6" />
                           </div>
                           {editingBranchId === branch.id ? (
-                            <div className="flex-1 flex items-center space-x-2 animate-in slide-in-from-left-2">
+                            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2 animate-in slide-in-from-left-2">
                               <input 
-                                autoFocus
-                                className="flex-1 bg-white border-2 border-blue-500 rounded-lg px-3 py-1 text-sm font-bold focus:outline-none"
-                                value={editBranchName}
-                                onChange={(e) => setEditBranchName(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleUpdateBranch(branch.id);
-                                  if (e.key === 'Escape') setEditingBranchId(null);
-                                }}
+                                className="bg-slate-50 border-2 border-blue-500 rounded-xl px-3 py-1.5 text-sm font-bold"
+                                value={editBranchData.name}
+                                onChange={(e) => setEditBranchData({...editBranchData, name: e.target.value})}
+                                placeholder="Branch Name"
                               />
-                              <button onClick={() => handleUpdateBranch(branch.id)} className="p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                                <Check className="w-3.5 h-3.5" />
-                              </button>
-                              <button onClick={() => setEditingBranchId(null)} className="p-1.5 bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300">
-                                <X className="w-3.5 h-3.5" />
-                              </button>
+                              <input 
+                                className="bg-slate-50 border-2 border-blue-500 rounded-xl px-3 py-1.5 text-sm font-bold"
+                                value={editBranchData.phone}
+                                onChange={(e) => setEditBranchData({...editBranchData, phone: e.target.value})}
+                                placeholder="Phone"
+                              />
+                              <input 
+                                className="bg-slate-50 border-2 border-blue-500 rounded-xl px-3 py-1.5 text-sm font-bold"
+                                value={editBranchData.email}
+                                onChange={(e) => setEditBranchData({...editBranchData, email: e.target.value})}
+                                placeholder="Email"
+                              />
                             </div>
                           ) : (
                             <div className="min-w-0 flex-1">
-                              <h4 className="font-bold text-slate-900 truncate">{branch.name}</h4>
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">ID: {branch.id}</p>
+                              <h4 className="text-lg font-black text-slate-900 tracking-tight">{branch.name}</h4>
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                                <span className="flex items-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                  <Phone className="w-3 h-3 mr-1.5 text-emerald-500" />
+                                  {branch.phone || 'No phone'}
+                                </span>
+                                <span className="flex items-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                  <Mail className="w-3 h-3 mr-1.5 text-indigo-500" />
+                                  {branch.email || 'No email'}
+                                </span>
+                              </div>
                             </div>
                           )}
                         </div>
                         
-                        {editingBranchId !== branch.id && (
-                          <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-all ml-4">
-                            <button 
-                              onClick={() => handleStartEditBranch(branch)}
-                              className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Edit Branch Name"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteBranch(branch.id)}
-                              className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete Branch"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )}
+                        <div className="flex items-center space-x-2 mt-4 md:mt-0">
+                          {editingBranchId === branch.id ? (
+                            <>
+                              <button onClick={() => handleUpdateBranch(branch.id)} className="p-2.5 bg-blue-600 text-white rounded-xl shadow-lg hover:bg-blue-700 transition-all">
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => setEditingBranchId(null)} className="p-2.5 bg-slate-100 text-slate-400 rounded-xl hover:bg-slate-200 transition-all">
+                                <X className="w-4 h-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button onClick={() => handleStartEditBranch(branch)} className="p-3 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
+                                <Edit2 className="w-5 h-5" />
+                              </button>
+                              <button onClick={() => handleDeleteBranch(branch.id)} className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>

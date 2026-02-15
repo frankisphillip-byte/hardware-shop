@@ -34,8 +34,8 @@ const App: React.FC = () => {
   const [incomingDeliveries, setIncomingDeliveries] = useState<IncomingDelivery[]>(() => loadState('incoming', initialIncoming));
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => loadState('logs', []));
   const [branches, setBranches] = useState<Branch[]>(() => loadState('branches', [
-    { id: 'b1', name: 'Main Warehouse' },
-    { id: 'b2', name: 'Downtown Branch' }
+    { id: 'b1', name: 'Main Warehouse', phone: '+1 555-0101', email: 'main@frankis.com' },
+    { id: 'b2', name: 'Downtown Branch', phone: '+1 555-0102', email: 'downtown@frankis.com' }
   ]));
   
   const [config, setConfig] = useState<SystemConfig>(() => loadState('config', {
@@ -136,7 +136,7 @@ const App: React.FC = () => {
                 />
                 <Route 
                   path="/inventory" 
-                  element={<Inventory products={products} setProducts={setProducts} role={currentUser.role} addLog={addLog} lowStockThreshold={config.lowStockThreshold} />} 
+                  element={<Inventory products={products} setProducts={setProducts} role={currentUser.role} addLog={addLog} lowStockThreshold={config.lowStockThreshold} branches={branches} />} 
                 />
                 <Route 
                   path="/accounting" 
@@ -144,7 +144,7 @@ const App: React.FC = () => {
                 />
                 <Route 
                   path="/employees" 
-                  element={<Employees users={users} setUsers={setUsers} role={currentUser.role} addLog={addLog} />} 
+                  element={<Employees users={users} setUsers={setUsers} role={currentUser.role} addLog={addLog} branches={branches} />} 
                 />
                 <Route 
                   path="/deliveries" 

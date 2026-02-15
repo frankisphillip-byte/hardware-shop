@@ -9,6 +9,7 @@ export const initialUsers: User[] = [
     password: '1234567890', 
     role: UserRole.ADMIN, 
     salary: 7500,
+    branchId: 'b1',
     permissions: ['dashboard', 'pos', 'inventory', 'accounting', 'employees', 'deliveries']
   },
   { 
@@ -18,6 +19,7 @@ export const initialUsers: User[] = [
     password: '123', 
     role: UserRole.CASHIER, 
     salary: 2500,
+    branchId: 'b2',
     permissions: ['pos', 'deliveries']
   },
   { 
@@ -27,6 +29,7 @@ export const initialUsers: User[] = [
     password: '123', 
     role: UserRole.WAREHOUSE_CLERK, 
     salary: 2800,
+    branchId: 'b1',
     permissions: ['inventory', 'deliveries']
   },
   { 
@@ -36,6 +39,7 @@ export const initialUsers: User[] = [
     password: '123', 
     role: UserRole.DRIVER, 
     salary: 2200,
+    branchId: 'b1',
     permissions: ['deliveries']
   },
   { 
@@ -45,18 +49,19 @@ export const initialUsers: User[] = [
     password: '123', 
     role: UserRole.HR, 
     salary: 3200,
+    branchId: 'b1',
     permissions: ['dashboard', 'employees']
   },
 ];
 
 export const initialProducts: Product[] = [
-  { id: 'p1', name: 'Power Drill 18V', category: 'Tools', price: 129.99, cost: 75.00, stock: 15, sku: 'DR-18V-P', barcode: '5012345678901', boxQuantity: 5, location: 'Shop', history: [] },
-  { id: 'p1_w', name: 'Power Drill 18V', category: 'Tools', price: 129.99, cost: 75.00, stock: 100, sku: 'DR-18V-P', barcode: '5012345678901', boxQuantity: 5, location: 'Warehouse', history: [] },
-  { id: 'p2', name: 'Lumber 2x4 8ft', category: 'Lumber', price: 8.50, cost: 4.20, stock: 250, sku: 'LB-24-8', barcode: '5012345678902', boxQuantity: 20, location: 'Shop', history: [] },
-  { id: 'p2_w', name: 'Lumber 2x4 8ft', category: 'Lumber', price: 8.50, cost: 4.20, stock: 1000, sku: 'LB-24-8', barcode: '5012345678902', boxQuantity: 20, location: 'Warehouse', history: [] },
-  { id: 'p3', name: 'Copper Pipe 1/2in', category: 'Plumbing', price: 12.00, cost: 6.50, stock: 45, sku: 'PL-CP-12', barcode: '5012345678903', boxQuantity: 10, location: 'Shop', history: [] },
-  { id: 'p4', name: 'Flat White Paint 5G', category: 'Paint', price: 89.00, cost: 55.00, stock: 20, sku: 'PT-FW-5G', barcode: '5012345678904', boxQuantity: 1, location: 'Shop', history: [] },
-  { id: 'p5', name: 'LED Light Bulb 4pk', category: 'Electrical', price: 15.99, cost: 8.00, stock: 80, sku: 'EL-LB-4', barcode: '5012345678905', boxQuantity: 48, location: 'Shop', history: [] },
+  { id: 'p1', name: 'Power Drill 18V', category: 'Tools', price: 129.99, cost: 75.00, stock: 15, sku: 'DR-18V-P', barcode: '5012345678901', boxQuantity: 5, location: 'Shop', branchId: 'b1', history: [] },
+  { id: 'p1_w', name: 'Power Drill 18V', category: 'Tools', price: 129.99, cost: 75.00, stock: 100, sku: 'DR-18V-P', barcode: '5012345678901', boxQuantity: 5, location: 'Warehouse', branchId: 'b1', history: [] },
+  { id: 'p2', name: 'Lumber 2x4 8ft', category: 'Lumber', price: 8.50, cost: 4.20, stock: 250, sku: 'LB-24-8', barcode: '5012345678902', boxQuantity: 20, location: 'Shop', branchId: 'b2', history: [] },
+  { id: 'p2_w', name: 'Lumber 2x4 8ft', category: 'Lumber', price: 8.50, cost: 4.20, stock: 1000, sku: 'LB-24-8', barcode: '5012345678902', boxQuantity: 20, location: 'Warehouse', branchId: 'b1', history: [] },
+  { id: 'p3', name: 'Copper Pipe 1/2in', category: 'Plumbing', price: 12.00, cost: 6.50, stock: 45, sku: 'PL-CP-12', barcode: '5012345678903', boxQuantity: 10, location: 'Shop', branchId: 'b2', history: [] },
+  { id: 'p4', name: 'Flat White Paint 5G', category: 'Paint', price: 89.00, cost: 55.00, stock: 20, sku: 'PT-FW-5G', barcode: '5012345678904', boxQuantity: 1, location: 'Shop', branchId: 'b2', history: [] },
+  { id: 'p5', name: 'LED Light Bulb 4pk', category: 'Electrical', price: 15.99, cost: 8.00, stock: 80, sku: 'EL-LB-4', barcode: '5012345678905', boxQuantity: 48, location: 'Shop', branchId: 'b2', history: [] },
 ];
 
 export const initialSales: Sale[] = [
@@ -67,7 +72,6 @@ export const initialSales: Sale[] = [
     tax: 19.63,
     total: 150.49, 
     cashierId: 'u2', 
-    // Added missing paymentMethod to fix type error
     paymentMethod: 'USD Cash',
     items: [
       { productId: 'p1', name: 'Power Drill 18V', quantity: 1, price: 129.99, cost: 75.00 }, 

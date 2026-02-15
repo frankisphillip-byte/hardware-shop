@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Product, Sale, User, SaleItem, LogType, StockHistoryEntry } from '../types';
-// Added Plus to imports
-import { Search, ShoppingCart, Trash2, CreditCard, ScanLine, Printer, Check, Share2, MessageCircle, FileText, X, RotateCcw, Wallet, ChevronUp, Plus } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, CreditCard, ScanLine, Printer, Check, FileText, X, Plus, Camera, Loader2, Barcode } from 'lucide-react';
+import { GoogleGenAI } from "@google/genai";
 
 interface POSProps {
   products: Product[];
@@ -19,12 +19,15 @@ interface POSProps {
 const POS: React.FC<POSProps> = ({ products, setProducts, sales, setSales, currentUser, addLog, taxRate, storeName, paymentMethods }) => {
   const [cart, setCart] = useState<SaleItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [barcodeInput, setBarcodeInput] = useState('');
   const [lastSaleId, setLastSaleId] = useState<string | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>(paymentMethods[0] || 'Cash');
-  const [dismissedProductIds, setDismissedProductIds] = useState<Set<string>>(new Set());
   const [showMobileCart, setShowMobileCart] = useState(false);
-  const barcodeInputRef = useRef<HTMLInputElement>(null);
+  
+  // Camera States
+  const [showScanner, setShowScanner] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     if (!paymentMethods.includes(selectedPaymentMethod)) {
@@ -35,14 +38,13 @@ const POS: React.FC<POSProps> = ({ products, setProducts, sales, setSales, curre
   const filteredProducts = useMemo(() => {
     return products.filter(p => 
       p.location === 'Shop' && 
-      !dismissedProductIds.has(p.id) &&
       (
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
         p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (p.barcode && p.barcode.includes(searchTerm))
       )
     );
-  }, [products, searchTerm, dismissedProductIds]);
+  }, [products, searchTerm]);
 
   const addToCart = (product: Product) => {
     if (product.stock <= 0) return alert("Out of stock!");
@@ -69,6 +71,74 @@ const POS: React.FC<POSProps> = ({ products, setProducts, sales, setSales, curre
     setCart(prev => prev.filter(item => item.productId !== productId));
   };
 
+  const startScanner = async () => {
+    setShowScanner(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      if (videoRef.current) videoRef.current.srcObject = stream;
+    } catch (err) {
+      alert("Camera access denied.");
+      setShowScanner(false);
+    }
+  };
+
+  const stopScanner = () => {
+    if (videoRef.current?.srcObject) {
+      (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+    }
+    setShowScanner(false);
+  };
+
+  const performAIScan = async () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    setIsScanning(true);
+    
+    const context = canvasRef.current.getContext('2d');
+    canvasRef.current.width = videoRef.current.videoWidth;
+    canvasRef.current.height = videoRef.current.videoHeight;
+    context?.drawImage(videoRef.current, 0, 0);
+    
+    const base64Image = canvasRef.current.toDataURL('image/jpeg').split(',')[1];
+    
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: {
+          parts: [
+            { inlineData: { data: base64Image, mimeType: 'image/jpeg' } },
+            { text: "Identify the product or barcode in this image. Return ONLY a JSON object with 'barcode' or 'sku' or 'name' string found. Example: {\"query\": \"5012345678901\"}" }
+          ]
+        },
+        config: { responseMimeType: "application/json" }
+      });
+
+      const result = JSON.parse(response.text || '{}');
+      const query = result.query || result.barcode || result.sku || result.name;
+      
+      if (query) {
+        const found = products.find(p => 
+          p.barcode === query || 
+          p.sku === query || 
+          p.name.toLowerCase().includes(query.toLowerCase())
+        );
+        if (found) {
+          addToCart(found);
+          addLog('SCAN', found.id, `AI detected product: ${found.name}`, 'success');
+          stopScanner();
+        } else {
+          setSearchTerm(query);
+          alert(`Detected: "${query}", but no exact match in inventory.`);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      alert("AI scanning failed. Try manual entry.");
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
   const cartSubtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const cartTax = cartSubtotal * (taxRate / 100);
   const cartTotal = cartSubtotal + cartTax;
@@ -91,7 +161,6 @@ const POS: React.FC<POSProps> = ({ products, setProducts, sales, setSales, curre
       const cartItem = cart.find(ci => ci.productId === p.id);
       if (cartItem) {
         const newStock = p.stock - cartItem.quantity;
-        // Explicitly typed entry to fix reason type inference error where string is not assignable to literal union
         const entry: StockHistoryEntry = {
           id: `H-${Date.now()}-${p.id}`,
           timestamp: new Date().toISOString(),
@@ -102,11 +171,7 @@ const POS: React.FC<POSProps> = ({ products, setProducts, sales, setSales, curre
           userId: currentUser.id,
           userName: currentUser.name
         };
-        return { 
-          ...p, 
-          stock: newStock,
-          history: [entry, ...(p.history || [])].slice(0, 100)
-        };
+        return { ...p, stock: newStock, history: [entry, ...(p.history || [])].slice(0, 100) };
       }
       return p;
     }));
@@ -115,12 +180,11 @@ const POS: React.FC<POSProps> = ({ products, setProducts, sales, setSales, curre
     addLog('TRANSACTION', newSale.id, `Sale Completed: $${cartTotal.toFixed(2)}`, 'success');
     setLastSaleId(saleId);
     setCart([]);
-    setShowMobileCart(true); // Auto-show results
+    setShowMobileCart(true);
   };
 
   return (
     <div className="flex flex-col lg:flex-row h-full gap-6 lg:gap-8 relative">
-      {/* Left: Product Feed */}
       <div className="flex-1 flex flex-col space-y-6 min-w-0">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/60 backdrop-blur-md p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
           <div>
@@ -132,14 +196,52 @@ const POS: React.FC<POSProps> = ({ products, setProducts, sales, setSales, curre
                 <Search className="w-4 h-4 text-slate-400 mr-3" />
                 <input 
                   type="text" 
-                  placeholder="Filter catalogue..." 
+                  placeholder="Barcode figures or name..." 
                   className="bg-transparent border-none focus:outline-none text-sm w-full font-medium" 
                   value={searchTerm} 
                   onChange={(e) => setSearchTerm(e.target.value)} 
                 />
              </div>
+             <button 
+               onClick={startScanner}
+               className="bg-slate-900 text-white p-3 rounded-2xl hover:bg-black transition-all shadow-lg active:scale-95 flex items-center justify-center space-x-2"
+               title="Open Camera Scanner"
+             >
+               <Camera className="w-5 h-5" />
+               <span className="text-[10px] font-black uppercase tracking-widest sm:hidden">Scanner</span>
+             </button>
           </div>
         </div>
+
+        {showScanner && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl animate-in fade-in">
+            <div className="bg-slate-900 w-full max-w-2xl rounded-[3rem] overflow-hidden relative border border-slate-800 shadow-2xl">
+              <div className="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                <div className="flex items-center space-x-3 text-white">
+                  <ScanLine className="w-6 h-6 text-blue-500 animate-pulse" />
+                  <h3 className="text-xl font-black tracking-tighter">AI Visual Terminal</h3>
+                </div>
+                <button onClick={stopScanner} className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl text-white transition-all"><X className="w-6 h-6" /></button>
+              </div>
+              <div className="aspect-video relative bg-black">
+                <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                <div className="absolute inset-0 border-[3px] border-dashed border-blue-500/40 m-12 pointer-events-none rounded-[2rem]" />
+                <canvas ref={canvasRef} className="hidden" />
+              </div>
+              <div className="p-10 flex flex-col items-center space-y-6 bg-slate-900">
+                <p className="text-slate-400 text-xs font-medium text-center max-w-sm">Position product or barcode in the frame. AI will identify the item and sync with inventory.</p>
+                <button 
+                  onClick={performAIScan}
+                  disabled={isScanning}
+                  className="w-full bg-blue-600 hover:bg-blue-500 text-white py-5 rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] shadow-2xl shadow-blue-600/20 active:scale-95 transition-all flex items-center justify-center space-x-3 disabled:opacity-50"
+                >
+                  {isScanning ? <Loader2 className="w-6 h-6 animate-spin" /> : <Camera className="w-6 h-6" />}
+                  <span>{isScanning ? 'Analyzing Scene...' : 'Authorize Frame Capture'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 overflow-y-auto pr-2 pb-24 lg:pb-6 scrollbar-hide">
           {filteredProducts.map(product => (
@@ -172,23 +274,6 @@ const POS: React.FC<POSProps> = ({ products, setProducts, sales, setSales, curre
         </div>
       </div>
 
-      {/* Floating Cart Trigger (Mobile) */}
-      <div className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
-        <button 
-          onClick={() => setShowMobileCart(true)}
-          className="bg-slate-900 text-white px-8 py-4 rounded-full shadow-2xl flex items-center space-x-3 active:scale-95 transition-all border border-slate-800"
-        >
-          <ShoppingCart className="w-5 h-5" />
-          <span className="font-black text-sm uppercase tracking-widest">Cart Summary</span>
-          {cart.length > 0 && (
-            <span className="bg-blue-600 text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center">
-              {cart.length}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* Cart Sidebar / Bottom Sheet */}
       <div className={`
         fixed lg:relative inset-x-0 bottom-0 lg:inset-auto z-40 lg:z-0 lg:w-[400px] h-[90vh] lg:h-full bg-white border border-slate-200 rounded-t-[3rem] lg:rounded-[3rem] flex flex-col shadow-2xl overflow-hidden transition-transform duration-500 ease-in-out
         ${showMobileCart ? 'translate-y-0' : 'translate-y-full lg:translate-y-0'}
@@ -293,11 +378,6 @@ const POS: React.FC<POSProps> = ({ products, setProducts, sales, setSales, curre
             </button>
           </div>
         )}
-      </div>
-
-      {/* Hidden Invoice Template (No changes needed for Print) */}
-      <div className="hidden print:block fixed inset-0 bg-white p-12 z-[100]">
-        {/* Print template already dynamically brands itself */}
       </div>
     </div>
   );

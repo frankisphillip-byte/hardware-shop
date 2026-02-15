@@ -38,12 +38,15 @@ export interface User {
   password?: string;
   role: UserRole;
   salary: number;
+  branchId: string; // Linked to Branch.id
   permissions: string[]; // List of feature IDs: 'dashboard', 'pos', 'inventory', 'accounting', 'employees', 'deliveries'
 }
 
 export interface Branch {
   id: string;
   name: string;
+  phone: string;
+  email: string;
 }
 
 export interface SystemConfig {
@@ -68,6 +71,7 @@ export interface Product {
   barcode: string;
   boxQuantity: number;
   location: StockLocation;
+  branchId?: string; // Branch association for inventory scaling
   history: StockHistoryEntry[];
 }
 
