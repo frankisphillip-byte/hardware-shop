@@ -23,6 +23,7 @@ const App: React.FC = () => {
   };
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   
   // Persisted States
   const [products, setProducts] = useState<Product[]>(() => loadState('products', initialProducts));
@@ -74,17 +75,7 @@ const App: React.FC = () => {
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
-    const tempLog: AuditLog = {
-      id: `LOG-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      userId: user.id,
-      userName: user.name,
-      type: 'LOGIN',
-      target: 'Auth',
-      details: `${user.name} authenticated successfully.`,
-      severity: 'success'
-    };
-    setAuditLogs(prev => [tempLog, ...prev]);
+    addLog('LOGIN', 'Auth', `${user.name} authenticated successfully.`, 'success');
   };
 
   const handleLogout = () => {
@@ -92,6 +83,7 @@ const App: React.FC = () => {
       addLog('LOGIN', 'Session', `${currentUser.name} logged out.`);
     }
     setCurrentUser(null);
+    setSidebarOpen(false);
   };
 
   const updateUser = (updatedUser: User) => {
@@ -107,74 +99,83 @@ const App: React.FC = () => {
 
   return (
     <HashRouter>
-      <div className="flex h-screen bg-slate-50">
+      <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
         <Sidebar 
           role={currentUser.role} 
           permissions={currentUser.permissions}
           onLogout={handleLogout} 
-          storeName={config.storeName} 
+          storeName={config.storeName}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
         />
         
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
+          {/* Decorative Blobs */}
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/5 rounded-full blur-[100px] pointer-events-none -z-10" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none -z-10" />
+
           <Header 
             user={currentUser} 
             products={products}
             deliveries={deliveries}
             lowStockThreshold={config.lowStockThreshold}
+            onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
           />
           
-          <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 lg:p-8">
-            <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route 
-                path="/dashboard" 
-                element={<Dashboard products={products} sales={sales} expenses={expenses} lowStockThreshold={config.lowStockThreshold} aiEnabled={config.aiEnabled} />} 
-              />
-              <Route 
-                path="/pos" 
-                element={<POS products={products} setProducts={setProducts} sales={sales} setSales={setSales} currentUser={currentUser} addLog={addLog} taxRate={config.taxRate} storeName={config.storeName} paymentMethods={config.paymentMethods} />} 
-              />
-              <Route 
-                path="/inventory" 
-                element={<Inventory products={products} setProducts={setProducts} role={currentUser.role} addLog={addLog} lowStockThreshold={config.lowStockThreshold} />} 
-              />
-              <Route 
-                path="/accounting" 
-                element={<Accounting sales={sales} expenses={expenses} setExpenses={setExpenses} role={currentUser.role} logs={auditLogs} products={products} users={users} taxRate={config.taxRate} />} 
-              />
-              <Route 
-                path="/employees" 
-                element={<Employees users={users} setUsers={setUsers} role={currentUser.role} addLog={addLog} />} 
-              />
-              <Route 
-                path="/deliveries" 
-                element={
-                  <Deliveries 
-                    deliveries={deliveries} 
-                    setDeliveries={setDeliveries} 
-                    incomingDeliveries={incomingDeliveries}
-                    setIncomingDeliveries={setIncomingDeliveries}
-                    products={products}
-                    setProducts={setProducts}
-                    role={currentUser.role} 
-                    currentUser={currentUser} 
-                    sales={sales} 
-                    addLog={addLog}
-                    branches={branches}
-                    storeName={config.storeName}
-                  />
-                } 
-              />
-              <Route 
-                path="/settings" 
-                element={<Settings config={config} setConfig={setConfig} role={currentUser.role} addLog={addLog} branches={branches} setBranches={setBranches} />} 
-              />
-              <Route 
-                path="/profile" 
-                element={<Profile user={currentUser} allUsers={users} updateUser={updateUser} addLog={addLog} />} 
-              />
-              <Route path="*" element={<div className="text-center py-10">Page Not Found</div>} />
-            </Routes>
+          <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 lg:p-10 scrollbar-hide">
+            <div className="max-w-[1600px] mx-auto pb-20 lg:pb-0">
+              <Routes>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route 
+                  path="/dashboard" 
+                  element={<Dashboard products={products} sales={sales} expenses={expenses} lowStockThreshold={config.lowStockThreshold} aiEnabled={config.aiEnabled} />} 
+                />
+                <Route 
+                  path="/pos" 
+                  element={<POS products={products} setProducts={setProducts} sales={sales} setSales={setSales} currentUser={currentUser} addLog={addLog} taxRate={config.taxRate} storeName={config.storeName} paymentMethods={config.paymentMethods} />} 
+                />
+                <Route 
+                  path="/inventory" 
+                  element={<Inventory products={products} setProducts={setProducts} role={currentUser.role} addLog={addLog} lowStockThreshold={config.lowStockThreshold} />} 
+                />
+                <Route 
+                  path="/accounting" 
+                  element={<Accounting sales={sales} expenses={expenses} setExpenses={setExpenses} role={currentUser.role} logs={auditLogs} products={products} users={users} taxRate={config.taxRate} />} 
+                />
+                <Route 
+                  path="/employees" 
+                  element={<Employees users={users} setUsers={setUsers} role={currentUser.role} addLog={addLog} />} 
+                />
+                <Route 
+                  path="/deliveries" 
+                  element={
+                    <Deliveries 
+                      deliveries={deliveries} 
+                      setDeliveries={setDeliveries} 
+                      incomingDeliveries={incomingDeliveries}
+                      setIncomingDeliveries={setIncomingDeliveries}
+                      products={products}
+                      setProducts={setProducts}
+                      role={currentUser.role} 
+                      currentUser={currentUser} 
+                      sales={sales} 
+                      addLog={addLog}
+                      branches={branches}
+                      storeName={config.storeName}
+                    />
+                  } 
+                />
+                <Route 
+                  path="/settings" 
+                  element={<Settings config={config} setConfig={setConfig} role={currentUser.role} addLog={addLog} branches={branches} setBranches={setBranches} />} 
+                />
+                <Route 
+                  path="/profile" 
+                  element={<Profile user={currentUser} allUsers={users} updateUser={updateUser} addLog={addLog} />} 
+                />
+                <Route path="*" element={<div className="text-center py-20 text-slate-400 font-bold uppercase tracking-widest">Entry Restricted: Resource Not Found</div>} />
+              </Routes>
+            </div>
           </main>
         </div>
       </div>
