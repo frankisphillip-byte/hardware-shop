@@ -5,7 +5,7 @@ import {
   Plus, Search, Printer, TrendingUp, DollarSign, 
   Trash2, X, Scale, FileText, Landmark,
   Wallet, PieChart as PieChartIcon, ArrowRight, Calculator, Activity,
-  Edit3, History
+  Edit3, History, Check, Calendar, Tag
 } from 'lucide-react';
 import { EXPENSE_CATEGORIES } from '../constants';
 
@@ -80,17 +80,17 @@ const Accounting: React.FC<AccountingProps> = ({
 
   const handleSaveExpense = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingExpense?.description || !editingExpense?.amount) return;
+    if (!editingExpense?.description || editingExpense?.amount === undefined) return;
     
     if (editingExpense.id) {
       setExpenses(prev => prev.map(e => e.id === editingExpense.id ? (editingExpense as Expense) : e));
     } else {
       const expense: Expense = {
         id: `EXP-${Date.now()}`,
-        date: editingExpense.date!,
+        date: editingExpense.date || new Date().toISOString().split('T')[0],
         description: editingExpense.description!,
         amount: Number(editingExpense.amount!),
-        category: editingExpense.category as any
+        category: (editingExpense.category as any) || 'Other'
       };
       setExpenses(prev => [expense, ...prev]);
     }
@@ -234,32 +234,194 @@ const Accounting: React.FC<AccountingProps> = ({
         </div>
       )}
       
-      {/* Expense Ledger Tab remains similar, just providing P&L and Balance Sheet logic improvements */}
       {activeTab === 'Expense Ledger' && (
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-          {/* ... existing table code ... */}
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase">Date</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase">Description</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase text-right">Amount</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-               {expenses.map(e => (
-                 <tr key={e.id}>
-                    <td className="px-6 py-4 text-sm">{e.date}</td>
-                    <td className="px-6 py-4 text-sm font-bold">{e.description}</td>
-                    <td className="px-6 py-4 text-right text-red-600 font-bold">-${e.amount}</td>
-                    <td className="px-6 py-4 text-right">
-                       <button onClick={() => handleDeleteExpense(e.id)} className="text-slate-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+        <div className="space-y-4 animate-in fade-in duration-300">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center bg-white border border-slate-200 rounded-xl px-4 py-2.5 w-full md:w-96 shadow-sm">
+              <Search className="w-4 h-4 text-slate-400 mr-2" />
+              <input 
+                type="text" 
+                placeholder="Search ledger entries..." 
+                className="bg-transparent border-none focus:outline-none text-sm w-full font-medium"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Description</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filteredExpenses.map(e => (
+                  <tr key={e.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="px-6 py-4 text-sm font-medium text-slate-500">{e.date}</td>
+                    <td className="px-6 py-4">
+                      <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200">
+                        {e.category}
+                      </span>
                     </td>
-                 </tr>
-               ))}
-            </tbody>
-          </table>
+                    <td className="px-6 py-4 text-sm font-bold text-slate-900">{e.description}</td>
+                    <td className="px-6 py-4 text-right text-rose-600 font-black">
+                      -${e.amount.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-all">
+                        <button 
+                          onClick={() => handleOpenModal(e)} 
+                          className="p-2 bg-white text-slate-400 hover:text-blue-600 border border-slate-100 rounded-xl hover:border-blue-200 shadow-sm"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteExpense(e.id)} 
+                          className="p-2 bg-white text-slate-400 hover:text-rose-600 border border-slate-100 rounded-xl hover:border-rose-200 shadow-sm"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filteredExpenses.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="py-20 text-center">
+                      <FileText className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                      <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No ledger entries found</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Audit Logs View */}
+      {activeTab === 'Audit' && (
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in duration-300">
+          <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+             <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">System Operation History</h3>
+             <History className="w-4 h-4 text-slate-400" />
+          </div>
+          <div className="max-h-[600px] overflow-y-auto">
+             {logs.length > 0 ? (
+               <div className="divide-y divide-slate-50">
+                  {logs.map(log => (
+                    <div key={log.id} className="p-6 flex items-start space-x-4 hover:bg-slate-50 transition-colors">
+                       <div className={`p-2 rounded-xl shrink-0 ${
+                         log.severity === 'success' ? 'bg-emerald-50 text-emerald-600' :
+                         log.severity === 'danger' ? 'bg-rose-50 text-rose-600' :
+                         log.severity === 'warning' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
+                       }`}>
+                          <Activity className="w-4 h-4" />
+                       </div>
+                       <div className="flex-1">
+                          <div className="flex justify-between">
+                             <p className="text-sm font-bold text-slate-900">{log.details}</p>
+                             <span className="text-[10px] font-black text-slate-400 uppercase">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-tighter">
+                            User: {log.userName} • Target: {log.target} • Type: {log.type}
+                          </p>
+                       </div>
+                    </div>
+                  ))}
+               </div>
+             ) : (
+               <div className="py-20 text-center">
+                  <Activity className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No audit logs available</p>
+               </div>
+             )}
+          </div>
+        </div>
+      )}
+
+      {/* Expense Modal */}
+      {showModal && editingExpense && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden p-10 animate-in zoom-in-95">
+            <h3 className="text-2xl font-black mb-8 flex items-center">
+              <Landmark className="w-6 h-6 mr-3 text-blue-600" />
+              {editingExpense.id ? 'Edit Ledger Entry' : 'Post Ledger Entry'}
+            </h3>
+            <form onSubmit={handleSaveExpense} className="space-y-6">
+               <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Description / Payee</label>
+                  <input 
+                    required 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-bold focus:ring-2 focus:ring-blue-500/20 focus:outline-none" 
+                    value={editingExpense.description} 
+                    onChange={e => setEditingExpense({...editingExpense, description: e.target.value})} 
+                    placeholder="e.g. Utility Bill, Rent payment..."
+                  />
+               </div>
+               
+               <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5 flex items-center">
+                      <Calendar className="w-3 h-3 mr-1.5 text-blue-500" />
+                      Transaction Date
+                    </label>
+                    <input 
+                      type="date" 
+                      required 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-bold focus:outline-none" 
+                      value={editingExpense.date} 
+                      onChange={e => setEditingExpense({...editingExpense, date: e.target.value})} 
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5 flex items-center">
+                      <Tag className="w-3 h-3 mr-1.5 text-indigo-500" />
+                      Category
+                    </label>
+                    <select 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-bold" 
+                      value={editingExpense.category} 
+                      onChange={e => setEditingExpense({...editingExpense, category: e.target.value as any})}
+                    >
+                      {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+               </div>
+
+               <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5 flex items-center">
+                    <DollarSign className="w-3 h-3 mr-1.5 text-rose-500" />
+                    Transaction Amount
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-black">$</span>
+                    <input 
+                      type="number" 
+                      required 
+                      step="0.01"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-5 py-3.5 text-sm font-black focus:ring-2 focus:ring-rose-500/20 outline-none" 
+                      value={editingExpense.amount} 
+                      onChange={e => setEditingExpense({...editingExpense, amount: parseFloat(e.target.value) || 0})} 
+                    />
+                  </div>
+               </div>
+
+               <div className="pt-6 flex space-x-4">
+                  <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-4 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-2xl transition-all">Cancel</button>
+                  <button type="submit" className="flex-1 py-4 bg-slate-900 text-white rounded-2xl text-sm font-black shadow-xl shadow-slate-900/20 active:scale-95 transition-all flex items-center justify-center">
+                    <Check className="w-4 h-4 mr-2" />
+                    <span>{editingExpense.id ? 'Authorize Update' : 'Commit Entry'}</span>
+                  </button>
+               </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
@@ -275,7 +437,7 @@ const FinCard = ({ title, value, icon: Icon, color, isMain }: any) => {
   };
 
   return (
-    <div className={`p-6 rounded-3xl border shadow-sm ${isMain ? 'bg-slate-900 text-white border-slate-800' : 'bg-white'}`}>
+    <div className={`p-6 rounded-3xl border shadow-sm transition-transform hover:-translate-y-1 ${isMain ? 'bg-slate-900 text-white border-slate-800' : 'bg-white'}`}>
       <div className="flex justify-between items-start mb-4">
         <div className={`p-2 rounded-lg ${isMain ? 'bg-white/10 text-white' : colorMap[color]}`}>
           <Icon className="w-4 h-4" />
@@ -292,7 +454,7 @@ const FinCard = ({ title, value, icon: Icon, color, isMain }: any) => {
 const FinLine = ({ label, value, isNegative, isBold }: any) => (
   <div className={`flex justify-between items-center text-sm ${isBold ? 'font-bold text-slate-900' : 'text-slate-600 font-medium'}`}>
     <span>{label}</span>
-    <span className={isNegative ? 'text-red-500' : ''}>
+    <span className={isNegative ? 'text-rose-500' : ''}>
       {isNegative ? '(' : ''}${Math.abs(value).toLocaleString()}{isNegative ? ')' : ''}
     </span>
   </div>
