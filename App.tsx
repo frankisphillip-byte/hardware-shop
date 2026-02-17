@@ -13,7 +13,7 @@ import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import { User, UserRole, Product, Sale, Expense, Delivery, IncomingDelivery, AuditLog, LogType, SystemConfig, Branch } from './types';
 import { initialProducts, initialUsers, initialSales, initialExpenses, initialDeliveries, initialIncoming } from './services/mockData';
-import { apiService } from './services/apiService';
+import * as apiService from './services/apiService';
 
 const App: React.FC = () => {
   // Persistence Helper
@@ -24,7 +24,8 @@ const App: React.FC = () => {
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isApiConnected, setIsApiConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Persisted States
   const [products, setProducts] = useState<Product[]>(() => loadState('products', initialProducts));
@@ -40,46 +41,44 @@ const App: React.FC = () => {
   ]));
 
   const [config, setConfig] = useState<SystemConfig>(() => loadState('config', {
-    storeName: 'Hardware Store',
+    storeName: 'My Local Hardware',
     currency: 'USD',
     lowStockThreshold: 10,
     taxRate: 15,
     aiEnabled: true,
-    paymentMethods: ['Card', 'Cash']
+    paymentMethods: ['Ecocash (Mobile)', 'Card', 'USD Cash', 'ZWL Cash']
   }));
 
-  // Load data from API on mount
+  // Initialize API on mount
   useEffect(() => {
-    const loadData = async () => {
+    const initializeApp = async () => {
       try {
-        console.log('Loading data from API...');
-        // Try to load from API first
-        const [productsData, usersData] = await Promise.all([
-          apiService.getProducts().catch(() => null),
-          apiService.getCustomers().catch(() => null),
-        ]);
+        // Check API health
+        const apiHealthy = await apiService.checkApiHealth();
+        setIsApiConnected(apiHealthy);
 
-        if (productsData && Array.isArray(productsData)) {
-          console.log('Products loaded from API:', productsData.length);
-          setProducts(productsData);
-        } else {
-          console.log('Using mock products');
-        }
+        if (apiHealthy) {
+          // Try to fetch data from API
+          const apiProducts = await apiService.fetchProducts();
+          const apiUsers = await apiService.fetchUsers();
+          const apiSales = await apiService.fetchSales();
+          const apiExpenses = await apiService.fetchExpenses();
 
-        // Users can be customers or from a users endpoint
-        if (usersData && Array.isArray(usersData)) {
-          console.log('Users loaded from API:', usersData.length);
-          // Merge with initial users (for login)
-          setUsers(initialUsers);
+          if (apiProducts) setProducts(apiProducts);
+          if (apiUsers) setUsers(apiUsers);
+          if (apiSales) setSales(apiSales);
+          if (apiExpenses) setExpenses(apiExpenses);
         }
       } catch (error) {
-        console.error('Failed to load data from API, using mock data:', error);
+        console.error('Failed to initialize app:', error);
+        // Gracefully fall back to mock data
+        setIsApiConnected(false);
       } finally {
-        setIsLoadingData(false);
+        setIsLoading(false);
       }
     };
 
-    loadData();
+    initializeApp();
   }, []);
 
   // Sync hooks
@@ -128,23 +127,35 @@ const App: React.FC = () => {
     }
   };
 
-  if (!currentUser) {
-    if (isLoadingData) {
-      return (
-        <div className="flex items-center justify-center h-screen bg-slate-50">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-            <p className="text-slate-600">Loading...</p>
+  // Show loading spinner while initializing
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+        <div className="text-center">
+          <div className="inline-block">
+            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
           </div>
+          <p className="mt-4 text-slate-600 font-medium">Loading application...</p>
+          {!isApiConnected && <p className="mt-2 text-sm text-amber-600">Using local data</p>}
         </div>
-      );
-    }
+      </div>
+    );
+  }
+
+  if (!currentUser) {
     return <Login users={users} onLogin={handleLogin} />;
   }
 
   return (
     <HashRouter>
       <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
+        {/* API Status Indicator */}
+        {!isApiConnected && (
+          <div className="fixed top-0 left-0 right-0 bg-amber-100 text-amber-800 text-center py-1 text-xs font-medium z-50">
+            ⚠ Running in offline mode - using local data
+          </div>
+        )}
+
         <Sidebar
           role={currentUser.role}
           permissions={currentUser.permissions}
@@ -154,7 +165,7 @@ const App: React.FC = () => {
           onClose={() => setSidebarOpen(false)}
         />
 
-        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
+        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative" style={{ paddingTop: isApiConnected ? 0 : '32px' }}>
           {/* Decorative Blobs */}
           <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/5 rounded-full blur-[100px] pointer-events-none -z-10" />
           <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none -z-10" />
