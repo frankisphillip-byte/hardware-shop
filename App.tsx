@@ -24,7 +24,7 @@ const App: React.FC = () => {
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [apiConnected, setApiConnected] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   // Persisted States
   const [products, setProducts] = useState<Product[]>(() => loadState('products', initialProducts));
@@ -40,36 +40,46 @@ const App: React.FC = () => {
   ]));
 
   const [config, setConfig] = useState<SystemConfig>(() => loadState('config', {
-    storeName: 'My Local Hardware',
+    storeName: 'Hardware Store',
     currency: 'USD',
     lowStockThreshold: 10,
     taxRate: 15,
     aiEnabled: true,
-    paymentMethods: ['Ecocash (Mobile)', 'Card', 'USD Cash', 'ZWL Cash']
+    paymentMethods: ['Card', 'Cash']
   }));
 
   // Load data from API on mount
   useEffect(() => {
-    const loadFromApi = async () => {
+    const loadData = async () => {
       try {
-        const apiProducts = await apiService.getProducts();
-        const apiSales = await apiService.getSales();
+        console.log('Loading data from API...');
+        // Try to load from API first
+        const [productsData, usersData] = await Promise.all([
+          apiService.getProducts().catch(() => null),
+          apiService.getCustomers().catch(() => null),
+        ]);
 
-        if (apiProducts && apiProducts.length > 0) {
-          setProducts(apiProducts);
-          setApiConnected(true);
-          console.log('✅ API Connected - Loaded products from backend');
+        if (productsData && Array.isArray(productsData)) {
+          console.log('Products loaded from API:', productsData.length);
+          setProducts(productsData);
+        } else {
+          console.log('Using mock products');
         }
-        if (apiSales && apiSales.length > 0) {
-          setSales(apiSales);
+
+        // Users can be customers or from a users endpoint
+        if (usersData && Array.isArray(usersData)) {
+          console.log('Users loaded from API:', usersData.length);
+          // Merge with initial users (for login)
+          setUsers(initialUsers);
         }
       } catch (error) {
-        console.warn('⚠️ API unavailable, using local data:', error);
-        setApiConnected(false);
+        console.error('Failed to load data from API, using mock data:', error);
+      } finally {
+        setIsLoadingData(false);
       }
     };
 
-    loadFromApi();
+    loadData();
   }, []);
 
   // Sync hooks
@@ -119,6 +129,16 @@ const App: React.FC = () => {
   };
 
   if (!currentUser) {
+    if (isLoadingData) {
+      return (
+        <div className="flex items-center justify-center h-screen bg-slate-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p className="text-slate-600">Loading...</p>
+          </div>
+        </div>
+      );
+    }
     return <Login users={users} onLogin={handleLogin} />;
   }
 
@@ -138,13 +158,6 @@ const App: React.FC = () => {
           {/* Decorative Blobs */}
           <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/5 rounded-full blur-[100px] pointer-events-none -z-10" />
           <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none -z-10" />
-
-          {/* API Status Indicator */}
-          {!apiConnected && (
-            <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-sm text-amber-800">
-              ⚠️ Using local data - Backend API unavailable
-            </div>
-          )}
 
           <Header
             user={currentUser}

@@ -1,140 +1,91 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
+interface RequestOptions {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
 }
 
-const handleApiError = (error: unknown): string => {
-  if (error instanceof Error) return error.message;
-  return String(error);
-};
+async function apiCall(endpoint: string, options: RequestOptions = {}) {
+  const url = `${API_URL}/api${endpoint}`;
+  const defaultHeaders = {
+    'Content-Type': 'application/json',
+  };
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: { ...defaultHeaders, ...options.headers },
+    });
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`API call failed for ${endpoint}:`, error);
+    throw error;
+  }
+}
 
 export const apiService = {
   // Products
-  async getProducts() {
-    try {
-      const response = await fetch(`${API_URL}/api/products`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      return data.data || [];
-    } catch (error) {
-      console.error('Failed to fetch products:', handleApiError(error));
-      return null;
-    }
-  },
+  getProducts: () => apiCall('/products'),
+  getProduct: (id: string) => apiCall(`/products/${id}`),
+  createProduct: (product: any) =>
+    apiCall('/products', {
+      method: 'POST',
+      body: JSON.stringify(product),
+    }),
+  updateProduct: (id: string, product: any) =>
+    apiCall(`/products/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(product),
+    }),
+  deleteProduct: (id: string) =>
+    apiCall(`/products/${id}`, { method: 'DELETE' }),
 
-  async createProduct(product: any) {
-    try {
-      const response = await fetch(`${API_URL}/api/products`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(product),
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      return data.data;
-    } catch (error) {
-      console.error('Failed to create product:', handleApiError(error));
-      return null;
-    }
-  },
-
-  async updateProduct(id: string, product: any) {
-    try {
-      const response = await fetch(`${API_URL}/api/products/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(product),
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      return data.data;
-    } catch (error) {
-      console.error('Failed to update product:', handleApiError(error));
-      return null;
-    }
-  },
+  // Inventory
+  getInventory: () => apiCall('/inventory'),
+  updateInventory: (productId: string, quantity: number) =>
+    apiCall('/inventory', {
+      method: 'POST',
+      body: JSON.stringify({ productId, quantity }),
+    }),
 
   // Sales
-  async getSales() {
-    try {
-      const response = await fetch(`${API_URL}/api/sales`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      return data.data || [];
-    } catch (error) {
-      console.error('Failed to fetch sales:', handleApiError(error));
-      return null;
-    }
-  },
-
-  async createSale(sale: any) {
-    try {
-      const response = await fetch(`${API_URL}/api/sales`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sale),
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      return data.data;
-    } catch (error) {
-      console.error('Failed to create sale:', handleApiError(error));
-      return null;
-    }
-  },
+  getSales: () => apiCall('/sales'),
+  createSale: (sale: any) =>
+    apiCall('/sales', {
+      method: 'POST',
+      body: JSON.stringify(sale),
+    }),
 
   // Customers
-  async getCustomers() {
-    try {
-      const response = await fetch(`${API_URL}/api/customers`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      return data.data || [];
-    } catch (error) {
-      console.error('Failed to fetch customers:', handleApiError(error));
-      return null;
-    }
-  },
-
-  // Suppliers
-  async getSuppliers() {
-    try {
-      const response = await fetch(`${API_URL}/api/suppliers`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      return data.data || [];
-    } catch (error) {
-      console.error('Failed to fetch suppliers:', handleApiError(error));
-      return null;
-    }
-  },
+  getCustomers: () => apiCall('/customers'),
+  createCustomer: (customer: any) =>
+    apiCall('/customers', {
+      method: 'POST',
+      body: JSON.stringify(customer),
+    }),
 
   // Categories
-  async getCategories() {
-    try {
-      const response = await fetch(`${API_URL}/api/categories`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      return data.data || [];
-    } catch (error) {
-      console.error('Failed to fetch categories:', handleApiError(error));
-      return null;
-    }
-  },
+  getCategories: () => apiCall('/categories'),
 
-  // Inventory Alerts
-  async getAlerts() {
-    try {
-      const response = await fetch(`${API_URL}/api/alerts`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      return data.data || [];
-    } catch (error) {
-      console.error('Failed to fetch alerts:', handleApiError(error));
-      return null;
-    }
-  },
+  // Suppliers
+  getSuppliers: () => apiCall('/suppliers'),
+  createSupplier: (supplier: any) =>
+    apiCall('/suppliers', {
+      method: 'POST',
+      body: JSON.stringify(supplier),
+    }),
+
+  // Purchase Orders
+  getPurchaseOrders: () => apiCall('/purchase-orders'),
+  createPurchaseOrder: (order: any) =>
+    apiCall('/purchase-orders', {
+      method: 'POST',
+      body: JSON.stringify(order),
+    }),
 };
