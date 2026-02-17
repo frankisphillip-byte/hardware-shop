@@ -1,242 +1,252 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Sidebar from './components/Sidebar';
-import Header from './components/Header';
-import Login from './pages/Login';
+import React, { useState, useEffect } from 'react';
+import { Menu, Plus, LogOut } from 'lucide-react';
+import { Product, Sale, Customer, Supplier, Category } from './types';
+import { apiService } from './services/apiService';
 import Dashboard from './pages/Dashboard';
-import POS from './pages/POS';
 import Inventory from './pages/Inventory';
-import Accounting from './pages/Accounting';
-import Employees from './pages/Employees';
-import Deliveries from './pages/Deliveries';
-import Settings from './pages/Settings';
-import Profile from './pages/Profile';
-import { User, UserRole, Product, Sale, Expense, Delivery, IncomingDelivery, AuditLog, LogType, SystemConfig, Branch } from './types';
-import { initialProducts, initialUsers, initialSales, initialExpenses, initialDeliveries, initialIncoming } from './services/mockData';
-import * as apiService from './services/apiService';
+import Sales from './pages/Sales';
+import Customers from './pages/Customers';
+import Suppliers from './pages/Suppliers';
+import Reports from './pages/Reports';
 
-const App: React.FC = () => {
-  // Persistence Helper
-  const loadState = <T,>(key: string, defaultValue: T): T => {
-    const saved = localStorage.getItem(`hmp_${key}`);
-    return saved ? JSON.parse(saved) : defaultValue;
-  };
+type Page = 'dashboard' | 'inventory' | 'sales' | 'customers' | 'suppliers' | 'reports';
 
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isApiConnected, setIsApiConnected] = useState(false);
+function App() {
+  const [currentPage, setCurrentPage] = useState<Page>('dashboard');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Persisted States
-  const [products, setProducts] = useState<Product[]>(() => loadState('products', initialProducts));
-  const [users, setUsers] = useState<User[]>(() => loadState('users', initialUsers));
-  const [sales, setSales] = useState<Sale[]>(() => loadState('sales', initialSales));
-  const [expenses, setExpenses] = useState<Expense[]>(() => loadState('expenses', initialExpenses));
-  const [deliveries, setDeliveries] = useState<Delivery[]>(() => loadState('deliveries', initialDeliveries));
-  const [incomingDeliveries, setIncomingDeliveries] = useState<IncomingDelivery[]>(() => loadState('incoming', initialIncoming));
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => loadState('logs', []));
-  const [branches, setBranches] = useState<Branch[]>(() => loadState('branches', [
-    { id: 'b1', name: 'Main Warehouse', phone: '+1 555-0101', email: 'main@frankis.com' },
-    { id: 'b2', name: 'Downtown Branch', phone: '+1 555-0102', email: 'downtown@frankis.com' }
-  ]));
+  // Data state
+  const [products, setProducts] = useState<Product[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
-  const [config, setConfig] = useState<SystemConfig>(() => loadState('config', {
-    storeName: 'My Local Hardware',
-    currency: 'USD',
-    lowStockThreshold: 10,
-    taxRate: 15,
-    aiEnabled: true,
-    paymentMethods: ['Ecocash (Mobile)', 'Card', 'USD Cash', 'ZWL Cash']
-  }));
-
-  // Initialize API on mount
+  // Load data from API on startup
   useEffect(() => {
-    const initializeApp = async () => {
+    const loadData = async () => {
+      setIsLoading(true);
       try {
-        // Check API health
-        const apiHealthy = await apiService.checkApiHealth();
-        setIsApiConnected(apiHealthy);
+        const [productsData, categoriesData, salesData, customersData, suppliersData] = await Promise.all([
+          apiService.getProducts().catch(() => []),
+          apiService.getCategories().catch(() => []),
+          apiService.getSales().catch(() => []),
+          apiService.getCustomers().catch(() => []),
+          apiService.getSuppliers().catch(() => []),
+        ]);
 
-        if (apiHealthy) {
-          // Try to fetch data from API
-          const apiProducts = await apiService.fetchProducts();
-          const apiUsers = await apiService.fetchUsers();
-          const apiSales = await apiService.fetchSales();
-          const apiExpenses = await apiService.fetchExpenses();
-
-          if (apiProducts) setProducts(apiProducts);
-          if (apiUsers) setUsers(apiUsers);
-          if (apiSales) setSales(apiSales);
-          if (apiExpenses) setExpenses(apiExpenses);
-        }
+        setProducts(productsData || []);
+        setCategories(categoriesData || []);
+        setSales(salesData || []);
+        setCustomers(customersData || []);
+        setSuppliers(suppliersData || []);
       } catch (error) {
-        console.error('Failed to initialize app:', error);
-        // Gracefully fall back to mock data
-        setIsApiConnected(false);
+        console.error('Error loading data:', error);
+        // Use fallback - show empty state
       } finally {
         setIsLoading(false);
       }
     };
 
-    initializeApp();
+    // Simulate login delay - in real app, this would validate credentials
+    setTimeout(() => {
+      if (!isLoggedIn) {
+        // Auto-login for demo - remove in production
+        handleLogin('demo', 'password');
+      }
+    }, 1000);
   }, []);
 
-  // Sync hooks
-  useEffect(() => localStorage.setItem('hmp_products', JSON.stringify(products)), [products]);
-  useEffect(() => localStorage.setItem('hmp_users', JSON.stringify(users)), [users]);
-  useEffect(() => localStorage.setItem('hmp_sales', JSON.stringify(sales)), [sales]);
-  useEffect(() => localStorage.setItem('hmp_expenses', JSON.stringify(expenses)), [expenses]);
-  useEffect(() => localStorage.setItem('hmp_deliveries', JSON.stringify(deliveries)), [deliveries]);
-  useEffect(() => localStorage.setItem('hmp_incoming', JSON.stringify(incomingDeliveries)), [incomingDeliveries]);
-  useEffect(() => localStorage.setItem('hmp_logs', JSON.stringify(auditLogs)), [auditLogs]);
-  useEffect(() => localStorage.setItem('hmp_config', JSON.stringify(config)), [config]);
-  useEffect(() => localStorage.setItem('hmp_branches', JSON.stringify(branches)), [branches]);
+  const handleLogin = (user: string, pass: string) => {
+    if (user && pass) {
+      setIsLoggedIn(true);
+      setUsername(user);
+      setLoginError('');
+      loadData();
+    } else {
+      setLoginError('Please enter username and password');
+    }
+  };
 
-  const addLog = useCallback((type: LogType, target: string, details: string, severity: AuditLog['severity'] = 'info') => {
-    if (!currentUser) return;
-    const newLog: AuditLog = {
-      id: `LOG-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      timestamp: new Date().toISOString(),
-      userId: currentUser.id,
-      userName: currentUser.name,
-      type,
-      target,
-      details,
-      severity
-    };
-    setAuditLogs(prev => [newLog, ...prev].slice(0, 500));
-  }, [currentUser]);
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [productsData, categoriesData, salesData, customersData, suppliersData] = await Promise.all([
+        apiService.getProducts().catch(() => []),
+        apiService.getCategories().catch(() => []),
+        apiService.getSales().catch(() => []),
+        apiService.getCustomers().catch(() => []),
+        apiService.getSuppliers().catch(() => []),
+      ]);
 
-  const handleLogin = (user: User) => {
-    setCurrentUser(user);
-    addLog('LOGIN', 'Auth', `${user.name} authenticated successfully.`, 'success');
+      setProducts(productsData || []);
+      setCategories(categoriesData || []);
+      setSales(salesData || []);
+      setCustomers(customersData || []);
+      setSuppliers(suppliersData || []);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleLogout = () => {
-    if (currentUser) {
-      addLog('LOGIN', 'Session', `${currentUser.name} logged out.`);
-    }
-    setCurrentUser(null);
-    setSidebarOpen(false);
+    setIsLoggedIn(false);
+    setUsername('');
+    setPassword('');
+    setCurrentPage('dashboard');
   };
 
-  const updateUser = (updatedUser: User) => {
-    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-    if (currentUser?.id === updatedUser.id) {
-      setCurrentUser(updatedUser);
-    }
-  };
-
-  // Show loading spinner while initializing
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center">
-          <div className="inline-block">
-            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-          </div>
-          <p className="mt-4 text-slate-600 font-medium">Loading application...</p>
-          {!isApiConnected && <p className="mt-2 text-sm text-amber-600">Using local data</p>}
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading Hardware Store System...</p>
         </div>
       </div>
     );
   }
 
-  if (!currentUser) {
-    return <Login users={users} onLogin={handleLogin} />;
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
+          <h1 className="text-3xl font-bold text-center text-indigo-600 mb-2">Hardware Store</h1>
+          <p className="text-center text-gray-600 mb-6">Management System</p>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleLogin(username, password);
+            }}
+            className="space-y-4"
+          >
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="Enter username"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="Enter password"
+              />
+            </div>
+            {loginError && <p className="text-red-600 text-sm">{loginError}</p>}
+            <button
+              type="submit"
+              className="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition"
+            >
+              Sign In
+            </button>
+          </form>
+          <p className="text-center text-gray-500 text-sm mt-4">Demo: Any username/password</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <HashRouter>
-      <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
-        {/* API Status Indicator */}
-        {!isApiConnected && (
-          <div className="fixed top-0 left-0 right-0 bg-amber-100 text-amber-800 text-center py-1 text-xs font-medium z-50">
-            ⚠ Running in offline mode - using local data
-          </div>
-        )}
+    <div className="flex h-screen bg-gray-100">
+      {/* Sidebar */}
+      <div
+        className={`${isSidebarOpen ? 'block' : 'hidden'} md:block w-64 bg-indigo-900 text-white transition-all duration-300 ease-in-out fixed md:static h-full z-40`}
+      >
+        <div className="p-6 border-b border-indigo-800">
+          <h1 className="text-2xl font-bold">HW Store</h1>
+          <p className="text-indigo-300 text-sm">Management</p>
+        </div>
 
-        <Sidebar
-          role={currentUser.role}
-          permissions={currentUser.permissions}
-          onLogout={handleLogout}
-          storeName={config.storeName}
-          isOpen={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
-        />
+        <nav className="mt-8 space-y-2 px-4">
+          {[
+            { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+            { id: 'inventory', label: 'Inventory', icon: '📦' },
+            { id: 'sales', label: 'Sales', icon: '💳' },
+            { id: 'customers', label: 'Customers', icon: '👥' },
+            { id: 'suppliers', label: 'Suppliers', icon: '🏭' },
+            { id: 'reports', label: 'Reports', icon: '📈' },
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => {
+                setCurrentPage(item.id as Page);
+                setIsSidebarOpen(false);
+              }}
+              className={`w-full text-left px-4 py-3 rounded-lg transition ${
+                currentPage === item.id
+                  ? 'bg-indigo-700 text-white font-semibold'
+                  : 'text-indigo-100 hover:bg-indigo-800'
+              }`}
+            >
+              <span className="mr-3">{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+        </nav>
 
-        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative" style={{ paddingTop: isApiConnected ? 0 : '32px' }}>
-          {/* Decorative Blobs */}
-          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/5 rounded-full blur-[100px] pointer-events-none -z-10" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none -z-10" />
-
-          <Header
-            user={currentUser}
-            products={products}
-            deliveries={deliveries}
-            lowStockThreshold={config.lowStockThreshold}
-            onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
-          />
-
-          <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 lg:p-10 scrollbar-hide">
-            <div className="max-w-[1600px] mx-auto pb-20 lg:pb-0">
-              <Routes>
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route
-                  path="/dashboard"
-                  element={<Dashboard products={products} sales={sales} expenses={expenses} lowStockThreshold={config.lowStockThreshold} aiEnabled={config.aiEnabled} />}
-                />
-                <Route
-                  path="/pos"
-                  element={<POS products={products} setProducts={setProducts} sales={sales} setSales={setSales} currentUser={currentUser} addLog={addLog} taxRate={config.taxRate} storeName={config.storeName} paymentMethods={config.paymentMethods} />}
-                />
-                <Route
-                  path="/inventory"
-                  element={<Inventory products={products} setProducts={setProducts} role={currentUser.role} addLog={addLog} lowStockThreshold={config.lowStockThreshold} branches={branches} />}
-                />
-                <Route
-                  path="/accounting"
-                  element={<Accounting sales={sales} expenses={expenses} setExpenses={setExpenses} role={currentUser.role} logs={auditLogs} products={products} users={users} taxRate={config.taxRate} />}
-                />
-                <Route
-                  path="/employees"
-                  element={<Employees users={users} setUsers={setUsers} role={currentUser.role} addLog={addLog} branches={branches} />}
-                />
-                <Route
-                  path="/deliveries"
-                  element={
-                    <Deliveries
-                      deliveries={deliveries}
-                      setDeliveries={setDeliveries}
-                      incomingDeliveries={incomingDeliveries}
-                      setIncomingDeliveries={setIncomingDeliveries}
-                      products={products}
-                      setProducts={setProducts}
-                      role={currentUser.role}
-                      currentUser={currentUser}
-                      sales={sales}
-                      addLog={addLog}
-                      branches={branches}
-                      storeName={config.storeName}
-                    />
-                  }
-                />
-                <Route
-                  path="/settings"
-                  element={<Settings config={config} setConfig={setConfig} role={currentUser.role} addLog={addLog} branches={branches} setBranches={setBranches} />}
-                />
-                <Route
-                  path="/profile"
-                  element={<Profile user={currentUser} allUsers={users} updateUser={updateUser} addLog={addLog} />}
-                />
-                <Route path="*" element={<div className="text-center py-20 text-slate-400 font-bold uppercase tracking-widest">Entry Restricted: Resource Not Found</div>} />
-              </Routes>
-            </div>
-          </main>
+        <div className="absolute bottom-6 left-4 right-4">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition text-white font-semibold"
+          >
+            <LogOut size={18} />
+            Logout
+          </button>
         </div>
       </div>
-    </HashRouter>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto">
+        {/* Top Bar */}
+        <div className="bg-white shadow-sm sticky top-0 z-30">
+          <div className="flex items-center justify-between px-6 py-4">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className="md:hidden text-gray-600 hover:text-gray-900"
+              >
+                <Menu size={24} />
+              </button>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-800 capitalize">{currentPage}</h2>
+                <p className="text-sm text-gray-500">Welcome, {username}</p>
+              </div>
+            </div>
+            <button className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">
+              <Plus size={20} />
+              Add New
+            </button>
+          </div>
+        </div>
+
+        {/* Page Content */}
+        <div className="p-6">
+          {currentPage === 'dashboard' && <Dashboard products={products} sales={sales} />}
+          {currentPage === 'inventory' && <Inventory products={products} categories={categories} onProductsChange={setProducts} />}
+          {currentPage === 'sales' && <Sales sales={sales} products={products} onSalesChange={setSales} />}
+          {currentPage === 'customers' && <Customers customers={customers} onCustomersChange={setCustomers} />}
+          {currentPage === 'suppliers' && <Suppliers suppliers={suppliers} onSuppliersChange={setSuppliers} />}
+          {currentPage === 'reports' && <Reports sales={sales} products={products} />}
+        </div>
+      </div>
+    </div>
   );
-};
+}
 
 export default App;
