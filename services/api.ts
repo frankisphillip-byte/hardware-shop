@@ -1,112 +1,136 @@
-// API Service - Connects frontend to Supabase backend
+import { supabase } from '../src/supabaseClient';
 import { Product, Sale, Customer } from '../types';
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://kkph0ek7h-frankisphillip-bytes-projects.vercel.app';
-
-// Helper function for API calls
-const apiCall = async (endpoint: string, options: RequestInit = {}) => {
-  try {
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error(`API call failed for ${endpoint}:`, error);
-    throw error;
-  }
-};
 
 // Products API
 export const productsAPI = {
-  getAll: () => apiCall('/api/products'),
-  getById: (id: string) => apiCall(`/api/products/${id}`),
-  create: (product: Partial<Product>) => 
-    apiCall('/api/products', {
-      method: 'POST',
-      body: JSON.stringify(product),
-    }),
-  update: (id: string, product: Partial<Product>) =>
-    apiCall(`/api/products/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(product),
-    }),
-  delete: (id: string) =>
-    apiCall(`/api/products/${id}`, { method: 'DELETE' }),
+  getAll: async () => {
+    const { data, error } = await supabase.from('products').select('*');
+    if (error) throw error;
+    return data;
+  },
+  getById: async (id: string) => {
+    const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
+    if (error) throw error;
+    return data;
+  },
+  create: async (product: Partial<Product>) => {
+    const { data, error } = await supabase.from('products').insert([product]).select();
+    if (error) throw error;
+    return data;
+  },
+  update: async (id: string, product: Partial<Product>) => {
+    const { data, error } = await supabase.from('products').update(product).eq('id', id).select();
+    if (error) throw error;
+    return data;
+  },
+  delete: async (id: string) => {
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    if (error) throw error;
+    return { success: true };
+  },
 };
 
 // Categories API
 export const categoriesAPI = {
-  getAll: () => apiCall('/api/categories'),
-  create: (name: string) =>
-    apiCall('/api/categories', {
-      method: 'POST',
-      body: JSON.stringify({ name }),
-    }),
+  getAll: async () => {
+    const { data, error } = await supabase.from('categories').select('*');
+    if (error) throw error;
+    return data;
+  },
+  create: async (name: string) => {
+    const { data, error } = await supabase.from('categories').insert([{ name }]).select();
+    if (error) throw error;
+    return data;
+  },
 };
 
-// Inventory API
+// Inventory API (assuming inventory is part of products for now, or a separate table)
 export const inventoryAPI = {
-  getAll: () => apiCall('/api/inventory'),
-  getByProductId: (productId: string) => apiCall(`/api/inventory?product_id=${productId}`),
-  updateStock: (productId: string, quantity: number) =>
-    apiCall('/api/inventory', {
-      method: 'POST',
-      body: JSON.stringify({ product_id: productId, quantity }),
-    }),
+  getAll: async () => {
+    const { data, error } = await supabase.from('products').select('*'); // Adjust if inventory is a separate table
+    if (error) throw error;
+    return data;
+  },
+  getByProductId: async (productId: string) => {
+    const { data, error } = await supabase.from('products').select('*').eq('id', productId).single();
+    if (error) throw error;
+    return data;
+  },
+  updateStock: async (productId: string, quantity: number) => {
+    // This assumes stock is updated directly on the product table
+    const { data, error } = await supabase.from('products').update({ stock: quantity }).eq('id', productId).select();
+    if (error) throw error;
+    return data;
+  },
 };
 
 // Sales API
 export const salesAPI = {
-  getAll: () => apiCall('/api/sales'),
-  getById: (id: string) => apiCall(`/api/sales/${id}`),
-  create: (sale: Partial<Sale>) =>
-    apiCall('/api/sales', {
-      method: 'POST',
-      body: JSON.stringify(sale),
-    }),
+  getAll: async () => {
+    const { data, error } = await supabase.from('sales').select('*, sale_items(*)');
+    if (error) throw error;
+    return data;
+  },
+  getById: async (id: string) => {
+    const { data, error } = await supabase.from('sales').select('*, sale_items(*)').eq('id', id).single();
+    if (error) throw error;
+    return data;
+  },
+  create: async (sale: Partial<Sale>) => {
+    const { data, error } = await supabase.from('sales').insert([sale]).select();
+    if (error) throw error;
+    return data;
+  },
 };
 
-// Customers API
+// Customers API (assuming a customers table exists)
 export const customersAPI = {
-  getAll: () => apiCall('/api/customers'),
-  getById: (id: string) => apiCall(`/api/customers/${id}`),
-  create: (customer: Partial<Customer>) =>
-    apiCall('/api/customers', {
-      method: 'POST',
-      body: JSON.stringify(customer),
-    }),
-  update: (id: string, customer: Partial<Customer>) =>
-    apiCall(`/api/customers/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(customer),
-    }),
+  getAll: async () => {
+    const { data, error } = await supabase.from('customers').select('*');
+    if (error) throw error;
+    return data;
+  },
+  getById: async (id: string) => {
+    const { data, error } = await supabase.from('customers').select('*').eq('id', id).single();
+    if (error) throw error;
+    return data;
+  },
+  create: async (customer: Partial<Customer>) => {
+    const { data, error } = await supabase.from('customers').insert([customer]).select();
+    if (error) throw error;
+    return data;
+  },
+  update: async (id: string, customer: Partial<Customer>) => {
+    const { data, error } = await supabase.from('customers').update(customer).eq('id', id).select();
+    if (error) throw error;
+    return data;
+  },
 };
 
-// Suppliers API
+// Suppliers API (assuming a suppliers table exists)
 export const suppliersAPI = {
-  getAll: () => apiCall('/api/suppliers'),
-  create: (supplier: any) =>
-    apiCall('/api/suppliers', {
-      method: 'POST',
-      body: JSON.stringify(supplier),
-    }),
+  getAll: async () => {
+    const { data, error } = await supabase.from('suppliers').select('*');
+    if (error) throw error;
+    return data;
+  },
+  create: async (supplier: any) => {
+    const { data, error } = await supabase.from('suppliers').insert([supplier]).select();
+    if (error) throw error;
+    return data;
+  },
 };
 
-// Purchase Orders API
+// Purchase Orders API (assuming a purchase_orders table exists)
 export const purchaseOrdersAPI = {
-  getAll: () => apiCall('/api/purchase-orders'),
-  create: (order: any) =>
-    apiCall('/api/purchase-orders', {
-      method: 'POST',
-      body: JSON.stringify(order),
-    }),
+  getAll: async () => {
+    const { data, error } = await supabase.from('purchase_orders').select('*');
+    if (error) throw error;
+    return data;
+  },
+  create: async (order: any) => {
+    const { data, error } = await supabase.from('purchase_orders').insert([order]).select();
+    if (error) throw error;
+    return data;
+  },
 };

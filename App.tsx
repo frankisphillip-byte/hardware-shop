@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, Plus, LogOut } from 'lucide-react';
 import { Product, Sale, Customer, Supplier, Category } from './types';
-import { apiService } from './services/apiService';
+import { productsAPI, categoriesAPI, salesAPI, customersAPI, suppliersAPI } from './services/api';
 import Dashboard from './pages/Dashboard';
 import Inventory from './pages/Inventory';
 import Sales from './pages/Sales';
@@ -33,11 +33,11 @@ function App() {
       setIsLoading(true);
       try {
         const [productsData, categoriesData, salesData, customersData, suppliersData] = await Promise.all([
-          apiService.getProducts().catch(() => []),
-          apiService.getCategories().catch(() => []),
-          apiService.getSales().catch(() => []),
-          apiService.getCustomers().catch(() => []),
-          apiService.getSuppliers().catch(() => []),
+          productsAPI.getAll().catch(() => []),
+          categoriesAPI.getAll().catch(() => []),
+          salesAPI.getAll().catch(() => []),
+          customersAPI.getAll().catch(() => []),
+          suppliersAPI.getAll().catch(() => []),
         ]);
 
         setProducts(productsData || []);
@@ -77,11 +77,11 @@ function App() {
     setIsLoading(true);
     try {
       const [productsData, categoriesData, salesData, customersData, suppliersData] = await Promise.all([
-        apiService.getProducts().catch(() => []),
-        apiService.getCategories().catch(() => []),
-        apiService.getSales().catch(() => []),
-        apiService.getCustomers().catch(() => []),
-        apiService.getSuppliers().catch(() => []),
+        productsAPI.getAll().catch(() => []),
+        categoriesAPI.getAll().catch(() => []),
+        salesAPI.getAll().catch(() => []),
+        customersAPI.getAll().catch(() => []),
+        suppliersAPI.getAll().catch(() => []),
       ]);
 
       setProducts(productsData || []);
