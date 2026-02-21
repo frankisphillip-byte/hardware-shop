@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hardware Shop</title>
+    <script>
+      // Polyfill for Node.js process object (needed by @google/genai SDK)
+      if (typeof globalThis.process === 'undefined') {
+        globalThis.process = { env: {}, version: '', platform: 'browser', arch: '', emit: function() {} };
+      }
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
